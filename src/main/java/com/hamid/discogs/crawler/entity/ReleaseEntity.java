@@ -20,8 +20,10 @@ public class ReleaseEntity {
     @Id
     private Long discogsId;
 
+    @Column(columnDefinition = "TEXT")
     private String title;
 
+    @Column(columnDefinition = "TEXT")
     private String artistsSort;
 
     @Column(name = "release_year")
@@ -31,8 +33,10 @@ public class ReleaseEntity {
 
     private String type;
 
+    @Column(columnDefinition = "TEXT")
     private String uri;
 
+    @Column(columnDefinition = "TEXT")
     private String catno;
 
     @Column(columnDefinition = "TEXT")
