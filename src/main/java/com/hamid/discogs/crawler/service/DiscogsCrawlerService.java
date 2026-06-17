@@ -28,15 +28,16 @@ public class DiscogsCrawlerService {
         do {
             log.debug("Fetching search results page {}/{} for query='{}'", page, totalPages, query);
             DiscogsSearchResponse response = apiClient.searchReleases(query, page);
-            sleep();
 
             if (response == null || response.getResults() == null) {
                 log.warn("Empty response for query='{}' page={}, stopping", query, page);
                 break;
             }
 
+            sleep();
+
             if (response.getPagination() != null) {
-                totalPages = response.getPagination().getPages();
+                totalPages = response.getPagination().pages();
             }
 
             for (var item : response.getResults()) {
@@ -58,7 +59,7 @@ public class DiscogsCrawlerService {
             }
 
             page++;
-        } while (page <= totalPages);
+        } while (page <= totalPages && !Thread.currentThread().isInterrupted());
 
         log.info("Crawl finished for query='{}', processed {} page(s)", query, page - 1);
     }
