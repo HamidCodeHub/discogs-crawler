@@ -1,10 +1,13 @@
 package com.hamid.discogs.crawler.client;
 
-import com.hamid.discogs.crawler.dto.ReleaseDto;
-import com.hamid.discogs.crawler.dto.SearchResultDto;
+import com.hamid.discogs.crawler.dto.DiscogsReleaseDetail;
+import com.hamid.discogs.crawler.dto.DiscogsSearchResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
+@Slf4j
 @Component
 public class DiscogsApiClient {
 
@@ -14,21 +17,32 @@ public class DiscogsApiClient {
         this.restClient = discogsRestClient;
     }
 
-    public ReleaseDto getRelease(long releaseId) {
-        return restClient.get()
-                .uri("/releases/{id}", releaseId)
-                .retrieve()
-                .body(ReleaseDto.class);
+    public DiscogsSearchResponse searchReleases(String query, int page) {
+        try {
+            return restClient.get()
+                    .uri(b -> b.path("/database/search")
+                            .queryParam("q", query)
+                            .queryParam("type", "release")
+                            .queryParam("page", page)
+                            .queryParam("per_page", 50)
+                            .build())
+                    .retrieve()
+                    .body(DiscogsSearchResponse.class);
+        } catch (RestClientException e) {
+            log.error("Failed to search releases for query='{}' page={}: {}", query, page, e.getMessage());
+            return null;
+        }
     }
 
-    public SearchResultDto search(String query, int page, int perPage) {
-        return restClient.get()
-                .uri(b -> b.path("/database/search")
-                        .queryParam("q", query)
-                        .queryParam("page", page)
-                        .queryParam("per_page", perPage)
-                        .build())
-                .retrieve()
-                .body(SearchResultDto.class);
+    public DiscogsReleaseDetail getReleaseById(long id) {
+        try {
+            return restClient.get()
+                    .uri("/releases/{id}", id)
+                    .retrieve()
+                    .body(DiscogsReleaseDetail.class);
+        } catch (RestClientException e) {
+            log.error("Failed to fetch release id={}: {}", id, e.getMessage());
+            return null;
+        }
     }
 }
