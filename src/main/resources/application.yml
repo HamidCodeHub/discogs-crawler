@@ -4,7 +4,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/discogs_db
     username: postgres
-    password: postgres
+    password: pass
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -15,7 +15,7 @@ spring:
         format_sql: true
 
 discogs:
-  token: YOUR_DISCOGS_TOKEN
+  token: {DISCOGS_TOKEN}
   base-url: https://api.discogs.com
   requests-per-minute: 60
   crawl:
