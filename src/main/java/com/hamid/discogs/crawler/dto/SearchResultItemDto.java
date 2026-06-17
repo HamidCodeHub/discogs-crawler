@@ -1,12 +1,7 @@
 package com.hamid.discogs.crawler.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-@JsonIgnoreProperties(ignoreUnknown = true)
-public record SearchResultItemDto(
-        long id,
-        String title,
-        String type,
-        @JsonProperty("resource_url") String resourceUrl
-) {}
+/** @deprecated replaced by {@link SearchResult} */
+@Deprecated
+public final class SearchResultItemDto {
+    private SearchResultItemDto() {}
+}
