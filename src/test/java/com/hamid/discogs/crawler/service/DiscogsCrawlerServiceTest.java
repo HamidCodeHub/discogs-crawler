@@ -34,7 +34,7 @@ class DiscogsCrawlerServiceTest {
     @Test
     void crawl_skipsExistingReleaseAndSavesNewOne() {
         SearchResult existing = searchResult(1L, "Existing Album");
-        SearchResult novel   = searchResult(2L, "New Album");
+        SearchResult novel   = fullSearchResult(2L, "New Album");
 
         when(apiClient.searchReleases("jazz", 1))
                 .thenReturn(searchResponse(existing, novel));
@@ -85,6 +85,14 @@ class DiscogsCrawlerServiceTest {
         return r;
     }
 
+    private static SearchResult fullSearchResult(long id, String title) {
+        SearchResult r = searchResult(id, title);
+        r.setYear("2023");
+        r.setCountry("DE");
+        r.setGenre(List.of("Electronic", "Techno"));
+        return r;
+    }
+
     private static DiscogsSearchResponse searchResponse(SearchResult... results) {
         PaginationDto pagination = new PaginationDto(1, 1, 50, results.length);
         DiscogsSearchResponse response = new DiscogsSearchResponse();
@@ -98,9 +106,6 @@ class DiscogsCrawlerServiceTest {
         detail.setId(2L);
         detail.setTitle("New Album");
         detail.setArtistsSort("Artist, The");
-        detail.setYear(2023);
-        detail.setCountry("DE");
-        detail.setGenres(List.of("Electronic", "Techno"));
         detail.setNotes("Repress");
         return detail;
     }

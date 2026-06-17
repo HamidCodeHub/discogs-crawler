@@ -29,8 +29,50 @@ public class ReleaseEntity {
 
     private String country;
 
+    private String type;
+
+    private String uri;
+
+    private String catno;
+
+    @Column(columnDefinition = "TEXT")
+    private String thumb;
+
+    @Column(columnDefinition = "TEXT")
+    private String coverImage;
+
+    @Column(columnDefinition = "TEXT")
+    private String resourceUrl;
+
+    private Long masterId;
+
+    @Column(columnDefinition = "TEXT")
+    private String masterUrl;
+
+    private Integer formatQuantity;
+
     @Column(columnDefinition = "TEXT")
     private String genres;
+
+    @Column(columnDefinition = "TEXT")
+    private String styles;
+
+    @Column(columnDefinition = "TEXT")
+    private String formats;
+
+    @Column(columnDefinition = "TEXT")
+    private String labels;
+
+    @Column(columnDefinition = "TEXT")
+    private String barcodes;
+
+    private Boolean inWantlist;
+
+    private Boolean inCollection;
+
+    private Integer communityWant;
+
+    private Integer communityHave;
 
     @Column(columnDefinition = "TEXT")
     private String notes;
