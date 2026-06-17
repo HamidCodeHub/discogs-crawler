@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: discogs-crawler
+  datasource:
+    url: jdbc:postgresql://localhost:5432/discogs_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+discogs:
+  token: YOUR_DISCOGS_TOKEN
+  base-url: https://api.discogs.com
+  requests-per-minute: 60
+  crawl:
+    delay: 1000
