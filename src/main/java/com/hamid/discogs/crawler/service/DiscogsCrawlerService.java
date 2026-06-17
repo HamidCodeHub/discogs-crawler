@@ -69,7 +69,7 @@ public class DiscogsCrawlerService {
         entity.setDiscogsId(detail.getId());
         entity.setTitle(detail.getTitle());
         entity.setArtistsSort(detail.getArtistsSort());
-        entity.setYear(detail.getYear() > 0 ? detail.getYear() : null);
+        entity.setReleaseYear(detail.getYear() > 0 ? detail.getYear() : null);
         entity.setCountry(detail.getCountry());
         entity.setGenres(joinList(detail.getGenres()));
         entity.setNotes(detail.getNotes());

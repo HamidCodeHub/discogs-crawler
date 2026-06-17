@@ -57,7 +57,7 @@ class DiscogsCrawlerServiceTest {
         assertThat(saved.getDiscogsId()).isEqualTo(2L);
         assertThat(saved.getTitle()).isEqualTo("New Album");
         assertThat(saved.getArtistsSort()).isEqualTo("Artist, The");
-        assertThat(saved.getYear()).isEqualTo(2023);
+        assertThat(saved.getReleaseYear()).isEqualTo(2023);
         assertThat(saved.getCountry()).isEqualTo("DE");
         assertThat(saved.getGenres()).isEqualTo("Electronic, Techno");
         assertThat(saved.getNotes()).isEqualTo("Repress");

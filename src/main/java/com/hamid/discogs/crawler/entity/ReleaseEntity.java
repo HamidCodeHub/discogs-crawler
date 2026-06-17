@@ -24,7 +24,8 @@ public class ReleaseEntity {
 
     private String artistsSort;
 
-    private Integer year;
+    @Column(name = "release_year")
+    private Integer releaseYear;
 
     private String country;
 
