@@ -50,6 +50,12 @@ public class DiscogsCrawlerService {
     public CompletableFuture<Void> crawl(CrawlJob job) {
         log.info("Crawl job={} starting for query='{}' at page {}", job.getId(), job.getQuery(), job.getCurrentPage() + 1);
 
+        // Guard: stop may have been signalled before this async task started
+        if (shouldStop(job.getId())) {
+            log.info("Crawl job={} was stopped before it started", job.getId());
+            return CompletableFuture.completedFuture(null);
+        }
+
         job.setStatus(CrawlStatus.RUNNING);
         job.setStartedAt(LocalDateTime.now());
         crawlJobRepository.save(job);
@@ -58,11 +64,13 @@ public class DiscogsCrawlerService {
         int totalPages = Math.max(job.getTotalPages(), 1);
         AtomicInteger saved = new AtomicInteger(job.getSavedCount());
         AtomicInteger skipped = new AtomicInteger(job.getSkippedCount());
+        boolean stoppedExternally = false;
 
         try {
             do {
                 if (shouldStop(job.getId())) {
                     log.info("Crawl job={} stopped at page {}/{}", job.getId(), page, totalPages);
+                    stoppedExternally = true;
                     break;
                 }
 
@@ -99,7 +107,7 @@ public class DiscogsCrawlerService {
                 page++;
             } while (page <= totalPages);
 
-            if (job.getStatus() != CrawlStatus.STOPPED) {
+            if (!stoppedExternally) {
                 job.setStatus(CrawlStatus.COMPLETED);
                 job.setCompletedAt(LocalDateTime.now());
                 crawlJobRepository.save(job);
