@@ -17,6 +17,10 @@ public interface ReleaseRepository extends JpaRepository<ReleaseEntity, Long> {
     @Query("SELECT r.discogsId FROM ReleaseEntity r WHERE r.discogsId IN :ids")
     Set<Long> findExistingIds(@Param("ids") List<Long> ids);
 
+    // numForSale IS NULL means marketplace stats have never been fetched for this release
+    @Query("SELECT r FROM ReleaseEntity r WHERE r.numForSale IS NULL ORDER BY r.discogsId ASC")
+    List<ReleaseEntity> findAllWithoutPrice(Pageable pageable);
+
     @Query("SELECT r FROM ReleaseEntity r WHERE " +
            "LOWER(r.title) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
            "LOWER(r.artistsSort) LIKE LOWER(CONCAT('%', :q, '%'))")
