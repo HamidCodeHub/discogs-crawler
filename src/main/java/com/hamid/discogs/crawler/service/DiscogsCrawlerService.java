@@ -148,22 +148,13 @@ public class DiscogsCrawlerService {
     }
 
     private void fetchAndSave(SearchResult item, AtomicInteger saved, AtomicInteger skipped) {
-        // Submit detail and marketplace calls simultaneously — both compete for rate limiter tokens
-        // but don't block each other, so the first one to acquire runs immediately
-        CompletableFuture<DiscogsReleaseDetail> detailFuture = CompletableFuture.supplyAsync(() -> {
-            rateLimiter.acquire();
-            return apiClient.getReleaseById(item.getId());
-        }, detailFetchExecutor);
+        // Sequential calls within the thread — avoids submitting nested tasks back to the
+        // same pool (which would deadlock when the pool is fully occupied by fetchAndSave tasks)
+        rateLimiter.acquire();
+        DiscogsReleaseDetail detail = apiClient.getReleaseById(item.getId());
 
-        CompletableFuture<DiscogsMarketplaceStats> statsFuture = CompletableFuture.supplyAsync(() -> {
-            rateLimiter.acquire();
-            return apiClient.getMarketplaceStats(item.getId());
-        }, detailFetchExecutor);
-
-        CompletableFuture.allOf(detailFuture, statsFuture).join();
-
-        DiscogsReleaseDetail detail = detailFuture.join();
-        DiscogsMarketplaceStats stats = statsFuture.join();
+        rateLimiter.acquire();
+        DiscogsMarketplaceStats stats = apiClient.getMarketplaceStats(item.getId());
 
         if (detail == null) {
             log.warn("No detail for release {}, skipping", item.getId());
