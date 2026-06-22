@@ -7,9 +7,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
+import java.util.Set;
+
 public interface ReleaseRepository extends JpaRepository<ReleaseEntity, Long> {
 
     boolean existsByDiscogsId(Long id);
+
+    @Query("SELECT r.discogsId FROM ReleaseEntity r WHERE r.discogsId IN :ids")
+    Set<Long> findExistingIds(@Param("ids") List<Long> ids);
 
     @Query("SELECT r FROM ReleaseEntity r WHERE " +
            "LOWER(r.title) LIKE LOWER(CONCAT('%', :q, '%')) OR " +

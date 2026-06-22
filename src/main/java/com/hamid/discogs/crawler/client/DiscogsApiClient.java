@@ -1,5 +1,6 @@
 package com.hamid.discogs.crawler.client;
 
+import com.hamid.discogs.crawler.dto.DiscogsMarketplaceStats;
 import com.hamid.discogs.crawler.dto.DiscogsReleaseDetail;
 import com.hamid.discogs.crawler.dto.DiscogsSearchResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -24,7 +25,7 @@ public class DiscogsApiClient {
                             .queryParam("q", query)
                             .queryParam("type", "release")
                             .queryParam("page", page)
-                            .queryParam("per_page", 50)
+                            .queryParam("per_page", 100)
                             .build())
                     .retrieve()
                     .body(DiscogsSearchResponse.class);
@@ -42,6 +43,18 @@ public class DiscogsApiClient {
                     .body(DiscogsReleaseDetail.class);
         } catch (RestClientException e) {
             log.error("Failed to fetch release id={}: {}", id, e.getMessage());
+            return null;
+        }
+    }
+
+    public DiscogsMarketplaceStats getMarketplaceStats(long id) {
+        try {
+            return restClient.get()
+                    .uri("/marketplace/stats/{id}", id)
+                    .retrieve()
+                    .body(DiscogsMarketplaceStats.class);
+        } catch (RestClientException e) {
+            log.error("Failed to fetch marketplace stats for release id={}: {}", id, e.getMessage());
             return null;
         }
     }

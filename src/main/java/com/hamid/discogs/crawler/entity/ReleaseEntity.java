@@ -81,5 +81,9 @@ public class ReleaseEntity {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    private Double lowestPrice;
+    private String priceCurrency;
+    private Integer numForSale;
+
     private LocalDateTime fetchedAt;
 }

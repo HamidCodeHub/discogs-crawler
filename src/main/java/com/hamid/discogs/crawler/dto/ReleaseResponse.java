@@ -12,6 +12,9 @@ public record ReleaseResponse(
         String country,
         String genres,
         String notes,
+        Double lowestPrice,
+        String priceCurrency,
+        Integer numForSale,
         LocalDateTime fetchedAt
 ) {
     public static ReleaseResponse from(ReleaseEntity e) {
@@ -23,6 +26,9 @@ public record ReleaseResponse(
                 e.getCountry(),
                 e.getGenres(),
                 e.getNotes(),
+                e.getLowestPrice(),
+                e.getPriceCurrency(),
+                e.getNumForSale(),
                 e.getFetchedAt()
         );
     }

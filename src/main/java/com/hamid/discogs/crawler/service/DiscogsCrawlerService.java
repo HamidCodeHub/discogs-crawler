@@ -2,6 +2,7 @@ package com.hamid.discogs.crawler.service;
 
 import com.google.common.util.concurrent.RateLimiter;
 import com.hamid.discogs.crawler.client.DiscogsApiClient;
+import com.hamid.discogs.crawler.dto.DiscogsMarketplaceStats;
 import com.hamid.discogs.crawler.dto.DiscogsReleaseDetail;
 import com.hamid.discogs.crawler.dto.DiscogsSearchResponse;
 import com.hamid.discogs.crawler.dto.SearchResult;
@@ -17,8 +18,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,7 +51,6 @@ public class DiscogsCrawlerService {
     public CompletableFuture<Void> crawl(CrawlJob job) {
         log.info("Crawl job={} starting for query='{}' at page {}", job.getId(), job.getQuery(), job.getCurrentPage() + 1);
 
-        // Guard: stop may have been signalled before this async task started
         if (shouldStop(job.getId())) {
             log.info("Crawl job={} was stopped before it started", job.getId());
             return CompletableFuture.completedFuture(null);
@@ -66,17 +66,27 @@ public class DiscogsCrawlerService {
         AtomicInteger skipped = new AtomicInteger(job.getSkippedCount());
         boolean stoppedExternally = false;
 
+        // Pipeline: holds the pre-fetched next page search result
+        CompletableFuture<DiscogsSearchResponse> prefetched = null;
+
         try {
             do {
                 if (shouldStop(job.getId())) {
                     log.info("Crawl job={} stopped at page {}/{}", job.getId(), page, totalPages);
                     stoppedExternally = true;
+                    if (prefetched != null) prefetched.cancel(true);
                     break;
                 }
 
-                log.debug("Fetching page {}/{} for query='{}'", page, totalPages, job.getQuery());
-                rateLimiter.acquire();
-                DiscogsSearchResponse response = apiClient.searchReleases(job.getQuery(), page);
+                // Use pre-fetched result if available, otherwise fetch now
+                DiscogsSearchResponse response;
+                if (prefetched != null) {
+                    response = prefetched.join();
+                    prefetched = null;
+                } else {
+                    rateLimiter.acquire();
+                    response = apiClient.searchReleases(job.getQuery(), page);
+                }
 
                 if (response == null || response.getResults() == null) {
                     log.warn("Empty response for query='{}' page={}, stopping", job.getQuery(), page);
@@ -87,16 +97,29 @@ public class DiscogsCrawlerService {
                     totalPages = response.getPagination().pages();
                 }
 
+                // Batch DB check — one query for the whole page instead of one per item
+                List<Long> pageIds = response.getResults().stream().map(SearchResult::getId).toList();
+                Set<Long> existingIds = releaseRepository.findExistingIds(pageIds);
                 List<SearchResult> newResults = response.getResults().stream()
-                        .filter(item -> !releaseRepository.existsByDiscogsId(item.getId()))
+                        .filter(item -> !existingIds.contains(item.getId()))
                         .toList();
-                skipped.addAndGet(response.getResults().size() - newResults.size());
+                skipped.addAndGet(pageIds.size() - newResults.size());
 
-                List<CompletableFuture<Void>> detailFutures = new ArrayList<>();
-                for (SearchResult item : newResults) {
-                    detailFutures.add(CompletableFuture.runAsync(() -> fetchAndSave(item, saved, skipped), detailFetchExecutor));
+                // Pipeline: pre-fetch next page search while processing this page's details
+                int nextPage = page + 1;
+                if (nextPage <= totalPages) {
+                    prefetched = CompletableFuture.supplyAsync(() -> {
+                        rateLimiter.acquire();
+                        return apiClient.searchReleases(job.getQuery(), nextPage);
+                    }, detailFetchExecutor);
                 }
-                CompletableFuture.allOf(detailFutures.toArray(CompletableFuture[]::new)).join();
+
+                // Fetch detail + marketplace stats in parallel for each new release
+                List<CompletableFuture<Void>> futures = newResults.stream()
+                        .map(item -> CompletableFuture.runAsync(
+                                () -> fetchAndSave(item, saved, skipped), detailFetchExecutor))
+                        .toList();
+                CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
 
                 job.setCurrentPage(page);
                 job.setTotalPages(totalPages);
@@ -125,19 +148,37 @@ public class DiscogsCrawlerService {
     }
 
     private void fetchAndSave(SearchResult item, AtomicInteger saved, AtomicInteger skipped) {
-        rateLimiter.acquire();
-        DiscogsReleaseDetail detail = apiClient.getReleaseById(item.getId());
+        // Submit detail and marketplace calls simultaneously — both compete for rate limiter tokens
+        // but don't block each other, so the first one to acquire runs immediately
+        CompletableFuture<DiscogsReleaseDetail> detailFuture = CompletableFuture.supplyAsync(() -> {
+            rateLimiter.acquire();
+            return apiClient.getReleaseById(item.getId());
+        }, detailFetchExecutor);
+
+        CompletableFuture<DiscogsMarketplaceStats> statsFuture = CompletableFuture.supplyAsync(() -> {
+            rateLimiter.acquire();
+            return apiClient.getMarketplaceStats(item.getId());
+        }, detailFetchExecutor);
+
+        CompletableFuture.allOf(detailFuture, statsFuture).join();
+
+        DiscogsReleaseDetail detail = detailFuture.join();
+        DiscogsMarketplaceStats stats = statsFuture.join();
+
         if (detail == null) {
             log.warn("No detail for release {}, skipping", item.getId());
             skipped.incrementAndGet();
             return;
         }
+
         try {
-            releaseRepository.save(toEntity(item, detail));
-            log.info("Saved release {} - {}", item.getId(), item.getTitle());
+            releaseRepository.save(toEntity(item, detail, stats));
+            log.info("Saved release {} - {} (price={}{})",
+                    item.getId(), item.getTitle(),
+                    stats != null && stats.getLowestPrice() != null ? stats.getLowestPrice().getValue() : "n/a",
+                    stats != null && stats.getLowestPrice() != null ? " " + stats.getLowestPrice().getCurrency() : "");
             saved.incrementAndGet();
         } catch (DataIntegrityViolationException e) {
-            // concurrent insert from a parallel thread — harmless
             log.debug("Release {} already saved by concurrent thread, skipping", item.getId());
             skipped.incrementAndGet();
         }
@@ -150,7 +191,7 @@ public class DiscogsCrawlerService {
                 .orElse(false);
     }
 
-    private ReleaseEntity toEntity(SearchResult item, DiscogsReleaseDetail detail) {
+    private ReleaseEntity toEntity(SearchResult item, DiscogsReleaseDetail detail, DiscogsMarketplaceStats stats) {
         ReleaseEntity entity = new ReleaseEntity();
 
         entity.setDiscogsId(item.getId());
@@ -183,6 +224,15 @@ public class DiscogsCrawlerService {
 
         entity.setArtistsSort(detail.getArtistsSort());
         entity.setNotes(detail.getNotes());
+
+        if (stats != null && stats.getLowestPrice() != null) {
+            entity.setLowestPrice(stats.getLowestPrice().getValue());
+            entity.setPriceCurrency(stats.getLowestPrice().getCurrency());
+        }
+        if (stats != null) {
+            entity.setNumForSale(stats.getNumForSale());
+        }
+
         entity.setFetchedAt(LocalDateTime.now());
         return entity;
     }
