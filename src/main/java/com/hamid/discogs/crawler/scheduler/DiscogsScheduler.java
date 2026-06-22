@@ -33,7 +33,7 @@ public class DiscogsScheduler {
         // Resume last incomplete job, or start fresh
         CrawlJob job = crawlJobRepository
                 .findTopByQueryAndStatusInOrderByStartedAtDesc(
-                        crawlQuery, List.of(CrawlStatus.FAILED, CrawlStatus.STOPPED))
+                        crawlQuery, List.of(CrawlStatus.RUNNING, CrawlStatus.FAILED, CrawlStatus.STOPPED))
                 .orElseGet(() -> {
                     CrawlJob newJob = new CrawlJob();
                     newJob.setQuery(crawlQuery);
