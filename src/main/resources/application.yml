@@ -20,3 +20,4 @@ discogs:
   requests-per-minute: 60
   crawl:
     delay: 3600000
+    scheduled-enabled: false

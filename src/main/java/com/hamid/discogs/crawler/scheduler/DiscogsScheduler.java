@@ -7,8 +7,11 @@ import com.hamid.discogs.crawler.service.DiscogsCrawlerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,8 +26,23 @@ public class DiscogsScheduler {
     @Value("${discogs.crawl.query:electronic}")
     private String crawlQuery;
 
+    @Value("${discogs.crawl.scheduled-enabled:false}")
+    private boolean scheduledEnabled;
+
+    @Transactional
+    @EventListener(ApplicationReadyEvent.class)
+    public void resetStaleJobsOnStartup() {
+        int count = crawlJobRepository.markAllRunningAsFailed();
+        if (count > 0) {
+            log.info("Startup: reset {} stale RUNNING job(s) to FAILED", count);
+        }
+    }
+
     @Scheduled(fixedDelayString = "${discogs.crawl.delay:3600000}")
     public void scheduledCrawl() {
+        if (!scheduledEnabled) {
+            return;
+        }
         if (crawlJobRepository.existsByStatus(CrawlStatus.RUNNING)) {
             log.info("Scheduled crawl skipped — a crawl is already running");
             return;
